@@ -1,27 +1,30 @@
 const grid = document.getElementById('grid');
+const quickProtocol = document.getElementById('quickProtocol');
 const address = document.getElementById('address');
 const editor = document.getElementById('editor');
 const editName = document.getElementById('editName');
+const editProtocol = document.getElementById('editProtocol');
 const editAddress = document.getElementById('editAddress');
 const editError = document.getElementById('editError');
+const editPreviewThumb = document.getElementById('editPreviewThumb');
+const editPreviewLabel = document.getElementById('editPreviewLabel');
+const editColors = document.getElementById('editColors');
+const editCustomColor = document.getElementById('editCustomColor');
+const editCustomLabel = editCustomColor.closest('.color-custom');
+const editIconSearch = document.getElementById('editIconSearch');
+const editIconGrid = document.getElementById('editIconGrid');
 
 let servers = [];
 let selectedId = null;
 let editingId = null;
+let selectedIcon = window.DashIcons.DEFAULT_ICON;
+let selectedColor = '';
 const status = {}; // id -> true / false (missing = checking)
 let openIds = [];  // servers with a connection open right now
 let ts = { enabled: false, running: false, peers: [] };
 
-const PALETTE = ['#0a84ff', '#bf5af2', '#40c8e0', '#ff9f0a', '#ff375f', '#30d158', '#5e5ce6', '#ff453a'];
-const MONITOR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></svg>';
 const PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
 const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto', style: 'short' });
-
-function colorFor(id) {
-  let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return PALETTE[h % PALETTE.length];
-}
 
 function ago(ts) {
   const s = (ts - Date.now()) / 1000;
@@ -47,8 +50,8 @@ function render() {
     const tile = el('div', 'tile' + (s.id === selectedId ? ' selected' : '') + (isOpen ? ' open' : ''));
     tile.tabIndex = 0;
     tile.dataset.id = s.id;
-    const thumb = el('div', 'thumb', MONITOR);
-    thumb.style.background = colorFor(s.id);
+    const thumb = el('div', 'thumb', window.DashIcons.iconSvg(s.icon, 1.6));
+    thumb.style.background = window.DashIcons.resolveColor(s.color, s.id);
     if (isTailnetAddress(s.address)) {
       const badge = el('span', 'badge');
       badge.textContent = 'Tailscale';
@@ -96,11 +99,30 @@ function select(id) {
 
 // ---- Quick connect ----
 
+function splitAddress(raw) {
+  const s = String(raw || '').trim();
+  const m = s.match(/^(https?:\/\/)(.*)$/i);
+  if (m) return { protocol: m[1].toLowerCase(), host: m[2] };
+  return { protocol: 'http://', host: s };
+}
+
+function syncProtocolInput(selectEl, inputEl) {
+  const m = inputEl.value.match(/^\s*(https?:\/\/)(.*)$/i);
+  if (m) {
+    selectEl.value = m[1].toLowerCase();
+    inputEl.value = m[2];
+  }
+}
+
+address.addEventListener('input', () => syncProtocolInput(quickProtocol, address));
+editAddress.addEventListener('input', () => syncProtocolInput(editProtocol, editAddress));
+
 document.getElementById('quick').addEventListener('submit', async (e) => {
   e.preventDefault();
   const value = address.value.trim();
   if (!value) return;
-  const r = await window.api.quickConnect(value);
+  const full = /^https?:\/\//i.test(value) ? value : `${quickProtocol.value}${value}`;
+  const r = await window.api.quickConnect(full);
   if (r && r.error) {
     address.classList.remove('shake');
     void address.offsetWidth;
@@ -112,12 +134,104 @@ document.getElementById('quick').addEventListener('submit', async (e) => {
 
 // ---- Add / edit dialog ----
 
+function renderColorSwatches() {
+  for (const existing of editColors.querySelectorAll('.swatch:not(.auto)')) existing.remove();
+  for (const color of window.DashIcons.PALETTE) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'swatch';
+    btn.dataset.color = color;
+    btn.title = color;
+    btn.style.background = color;
+    editColors.insertBefore(btn, editCustomLabel);
+  }
+  editColors.addEventListener('click', (e) => {
+    const btn = e.target.closest('.swatch');
+    if (!btn) return;
+    selectedColor = btn.dataset.color || '';
+    updateColorSelection();
+    updatePreview();
+  });
+}
+
+function updateColorSelection() {
+  const norm = window.DashIcons.normalizeColor(selectedColor);
+  let matchedPreset = false;
+  for (const btn of editColors.querySelectorAll('.swatch')) {
+    const isMatch = (btn.dataset.color || '') === norm;
+    btn.classList.toggle('selected', isMatch);
+    if (isMatch && norm) matchedPreset = true;
+  }
+  editCustomLabel.classList.toggle('selected', !!norm && !matchedPreset);
+  editCustomColor.value = norm || window.DashIcons.resolveColor('', editingId || 'new');
+}
+
+function updatePreview() {
+  const iconId = window.DashIcons.resolveIcon(selectedIcon);
+  const color = window.DashIcons.resolveColor(selectedColor, editingId || 'new');
+  editPreviewThumb.style.background = color;
+  editPreviewThumb.innerHTML = window.DashIcons.iconSvg(iconId, 1.75);
+  const entry = window.DashIcons.ICON_MAP[iconId];
+  editPreviewLabel.textContent = `${entry ? entry.label : iconId}  ·  ${selectedColor ? selectedColor.toUpperCase() : 'Auto color'}`;
+}
+
+function renderIconGrid(filter = '') {
+  const q = String(filter || '').trim().toLowerCase();
+  const matches = q
+    ? window.DashIcons.ICONS.filter((ic) => `${ic.id} ${ic.label} ${ic.tags}`.toLowerCase().includes(q))
+    : window.DashIcons.ICONS;
+  editIconGrid.textContent = '';
+  if (!matches.length) {
+    const empty = el('div', 'icon-empty');
+    empty.textContent = 'No matching Tabler icons';
+    editIconGrid.append(empty);
+    return;
+  }
+  for (const ic of matches) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'icon-btn' + (ic.id === selectedIcon ? ' selected' : '');
+    btn.dataset.icon = ic.id;
+    btn.title = `${ic.label} (${ic.id})`;
+    btn.setAttribute('aria-label', ic.label);
+    btn.setAttribute('aria-selected', ic.id === selectedIcon ? 'true' : 'false');
+    btn.innerHTML = window.DashIcons.iconSvg(ic.id, 1.75);
+    btn.addEventListener('click', () => {
+      selectedIcon = ic.id;
+      for (const b of editIconGrid.querySelectorAll('.icon-btn')) {
+        const active = b.dataset.icon === selectedIcon;
+        b.classList.toggle('selected', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      }
+      updatePreview();
+    });
+    editIconGrid.append(btn);
+  }
+}
+
+renderColorSwatches();
+editCustomColor.addEventListener('input', () => {
+  selectedColor = window.DashIcons.normalizeColor(editCustomColor.value);
+  updateColorSelection();
+  updatePreview();
+});
+editIconSearch.addEventListener('input', () => renderIconGrid(editIconSearch.value));
+editIconSearch.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+
 function openEditor(id, preset) {
   editingId = id;
   const s = servers.find((x) => x.id === id);
   document.getElementById('editTitle').textContent = s ? 'Edit Server' : 'Add Server';
   editName.value = s ? s.name : preset?.name || '';
-  editAddress.value = s ? s.address : preset?.address || '';
+  const { protocol, host } = splitAddress(s ? s.address : preset?.address || '');
+  editProtocol.value = (!s && preset?.protocol) || protocol;
+  editAddress.value = host;
+  selectedIcon = window.DashIcons.resolveIcon(s ? s.icon : preset?.icon);
+  selectedColor = window.DashIcons.normalizeColor(s ? s.color : preset?.color);
+  editIconSearch.value = '';
+  updateColorSelection();
+  renderIconGrid();
+  updatePreview();
   editError.textContent = preset?.hint || '';
   editError.style.color = preset?.hint ? 'var(--muted)' : '';
   editor.showModal();
@@ -134,7 +248,9 @@ document.getElementById('editCancel').addEventListener('click', () => editor.clo
 
 document.getElementById('editForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const data = { name: editName.value, address: editAddress.value };
+  const rawAddr = editAddress.value.trim();
+  const fullAddr = rawAddr ? (/^https?:\/\//i.test(rawAddr) ? rawAddr : `${editProtocol.value}${rawAddr}`) : '';
+  const data = { name: editName.value, address: fullAddr, icon: selectedIcon, color: selectedColor };
   const r = editingId ? await window.api.update({ id: editingId, ...data }) : await window.api.add(data);
   if (r.error) {
     editError.style.color = '';
@@ -167,6 +283,7 @@ window.api.onStatus(({ id, online }) => {
   render();
 });
 window.api.onEdit((id) => openEditor(id));
+window.api.onAdd(() => openEditor(null));
 window.api.onOpen((ids) => {
   openIds = ids;
   render();
@@ -260,7 +377,7 @@ function renderTs() {
     add.addEventListener('click', () => openEditor(null, {
       name: p.name,
       address: `${host}:`,
-      hint: 'Type the Selkies port after the colon, e.g. 3001 (https) or 8080.',
+      hint: 'Choose http:// or https:// and type the Selkies port after the colon, e.g. 3001 (https) or 8080.',
     }));
     row.append(dot, info, add);
     row.title = p.dnsName || p.ip;

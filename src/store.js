@@ -3,6 +3,7 @@ const { app, safeStorage } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const icons = require('./icons');
 
 const file = (name) => path.join(app.getPath('userData'), name);
 
@@ -53,13 +54,15 @@ function saveServers(list) {
   write('servers.json', list);
 }
 
-function addServer({ name, address }) {
+function addServer({ name, address, icon, color }) {
   const url = normalize(address);
   if (!url) return { error: "That address doesn't look right. Try 192.168.1.50:8080 or https://myserver:3001" };
   const server = {
     id: crypto.randomUUID(),
     name: (name || '').trim() || new URL(url).hostname,
     address: address.trim(),
+    icon: icons.normalizeIcon(icon),
+    color: icons.normalizeColor(color),
     lastConnected: null,
   };
   saveServers([...listServers(), server]);
@@ -75,6 +78,8 @@ function updateServer(changes) {
   if (!url) return { error: "That address doesn't look right. Try 192.168.1.50:8080 or https://myserver:3001" };
   next.address = next.address.trim();
   next.name = (next.name || '').trim() || new URL(url).hostname;
+  next.icon = 'icon' in changes ? icons.normalizeIcon(changes.icon) : icons.normalizeIcon(list[i].icon);
+  next.color = 'color' in changes ? icons.normalizeColor(changes.color) : icons.normalizeColor(list[i].color);
   list[i] = next;
   saveServers(list);
   return next;
@@ -124,13 +129,17 @@ function setLock(lock) {
   setSettings({ ...getSettings(), lock });
 }
 
-function verifyPassword(password) {
-  const l = getLock();
-  if (!l.hash || !l.salt) return false;
-  const got = crypto.scryptSync(String(password || ''), l.salt, 64);
-  const expected = Buffer.from(String(l.hash), 'hex');
+function verifyHash(password, salt, hash) {
+  if (!hash || !salt) return false;
+  const got = crypto.scryptSync(String(password || ''), salt, 64);
+  const expected = Buffer.from(String(hash), 'hex');
   if (got.length !== expected.length) return false;
   return crypto.timingSafeEqual(got, expected);
+}
+
+function verifyPassword(password) {
+  const l = getLock();
+  return verifyHash(password, l.salt, l.hash);
 }
 
 function verifyLock(user, password) {
@@ -170,6 +179,6 @@ module.exports = {
   normalize, hostKey,
   listServers, addServer, updateServer, removeServer, getServer,
   getSettings, setSettings, isTrusted, trust,
-  hashPassword, getLock, setLock, verifyPassword, verifyLock,
+  hashPassword, getLock, setLock, verifyHash, verifyPassword, verifyLock,
   getCredential, saveCredential, deleteCredential,
 };

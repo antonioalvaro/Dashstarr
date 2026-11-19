@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>Quick Lock</title>
+  <style>
+    :root { --bg: #f5f5f7; --text: #1d1d1f; --muted: #6e6e73; --border: rgba(0,0,0,.12); --input: #fff; --accent: #0a84ff; color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #2a2a2d; --text: #f5f5f7; --muted: #a1a1a6; --border: rgba(255,255,255,.12); --input: #1e1e20; } }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; padding: 22px 24px 20px; background: var(--bg); color: var(--text); font: 13px -apple-system, BlinkMacSystemFont, sans-serif; user-select: none; }
+    .head { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+    .lock { width: 40px; height: 40px; border-radius: 10px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
+    .lock svg { width: 22px; height: 22px; }
+    h1 { font-size: 15px; margin: 0 0 2px; }
+    .sub { color: var(--muted); font-size: 12px; }
+    label { display: block; font-weight: 500; margin-bottom: 9px; }
+    input[type=password] { display: block; width: 100%; margin-top: 4px; padding: 7px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--input); color: var(--text); font: inherit; outline: none; user-select: text; }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(10,132,255,.25); }
+    .check { display: flex; gap: 6px; align-items: center; font-weight: 400; margin: 4px 0 6px; }
+    .error { color: #ff453a; font-size: 12px; min-height: 16px; margin: 2px 0 6px; }
+    .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    button { font: inherit; padding: 6px 16px; border-radius: 7px; border: 1px solid var(--border); background: var(--input); color: var(--text); }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+    button:disabled { opacity: .5; }
+  </style>
+</head>
+<body>
+  <form id="f" autocomplete="off">
+    <div class="head">
+      <div class="lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+      <div>
+        <h1>Quick Lock</h1>
+        <div class="sub">Set a one-time password to lock Dashstarr now.</div>
+      </div>
+    </div>
+    <label>Password<input id="password" type="password"></label>
+    <label>Confirm password<input id="confirm" type="password"></label>
+    <label class="check" id="touchRow" hidden><input id="touch" type="checkbox"> Allow unlocking with Touch ID</label>
+    <p class="error" id="err"></p>
+    <div class="buttons">
+      <button type="button" id="cancel">Cancel</button>
+      <button type="submit" id="go" class="primary">Lock Now</button>
+    </div>
+  </form>
+  <script src="quicklock.js"></script>
+</body>
+</html>

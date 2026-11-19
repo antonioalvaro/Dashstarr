@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('api', {
   onServers: (fn) => ipcRenderer.on('servers', (_e, list) => fn(list)),
   onStatus: (fn) => ipcRenderer.on('status', (_e, s) => fn(s)),
   onEdit: (fn) => ipcRenderer.on('edit', (_e, id) => fn(id)),
+  onAdd: (fn) => ipcRenderer.on('add', () => fn()),
   onOpen: (fn) => ipcRenderer.on('open', (_e, ids) => fn(ids)),
   tsState: () => ipcRenderer.invoke('ts:state'),
   tsMenu: () => ipcRenderer.send('ts:menu'),

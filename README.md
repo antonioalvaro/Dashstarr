@@ -5,7 +5,7 @@ A standalone Mac app for Selkies VNC and others self hosted services, it uses Ch
 ## Features
 
 - AnyDesk style home screen: type an IP in the top bar and press Enter, or pick a saved server tile
-- Tiles show name, address, a live online/offline dot and when you last connected. Double click to connect, right click to edit, duplicate or remove
+- Tiles show name, address, a live online/offline dot and when you last connected, with customizable Tabler icons and colors. Double click to connect, right click to edit, duplicate or remove
 - One window: a single connection fills the whole window. Open a second one and a tab bar appears (it goes away again when you're back to one)
 - Selkies HTTP login popup, with "Remember this login" (encrypted with your macOS Keychain)
 - Plain http servers get treated as secure, so Selkies' video decoding works without https (the first connect to a new http address asks for a quick restart)
@@ -47,7 +47,7 @@ The app icon is `build/icon.png` (1024x1024). Replace it and run `npm run dist` 
 | Keys | Action |
 | --- | --- |
 | Cmd+, | Settings (app lock) |
-| Cmd+Shift+L | Lock now |
+| Cmd+Shift+L | Quick Lock (locks now, or prompts for a one-time password) |
 | Cmd+0 | Home screen |
 | Cmd+1 to 9 | Jump to connection 1 to 9 |
 | Ctrl+Tab / Ctrl+Shift+Tab | Next / previous connection |
@@ -58,15 +58,15 @@ The app icon is `build/icon.png` (1024x1024). Replace it and run `npm run dist` 
 | Cmd+W | Close the current connection or pop-up window |
 | Cmd+Shift+W | Close the window |
 
-View > Forget Saved Login removes the stored password for the current server.
+View > Forget Saved Login removes the stored password for the current server. Use the **Connection** menu to open or switch to any pinned server from anywhere without going back to Home.
 
 ## App lock
 
-Open **Dashstarr > Settings…** (Cmd+,) and turn on **Require a password to open the app**.
+Open **Dashstarr > Settings…** (Cmd+,) and turn on **Require a password to open the app**, or use **Dashstarr > Quick Lock** (Cmd+Shift+L) any time to lock immediately (with your saved password if App Lock is enabled, or a one-time password without opening Settings).
 
 - Username is optional. Leave it empty to unlock with just a password.
 - **Lock automatically after** locks the app after that many minutes with no keyboard or mouse activity on the Mac.
-- You can also lock when the Mac sleeps or the screen locks, unlock with Touch ID, or lock any time with **Lock Now** (Cmd+Shift+L).
+- You can also lock when the Mac sleeps or the screen locks, unlock with Touch ID, or lock any time with **Quick Lock** (Cmd+Shift+L).
 - While locked, all windows are hidden and session audio is muted. Your connections keep running, so unlocking puts you right back.
 - The password is stored as a salted hash, never in plain text. After 5 wrong tries there's a short wait before you can try again.
 - Forgot the password? Quit the app, open `~/Library/Application Support/Dashstarr/settings.json` and delete the `"lock"` entry. This turns the lock off (your servers are kept).

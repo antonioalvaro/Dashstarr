@@ -1,10 +1,3 @@
-const PALETTE = ['#0a84ff', '#bf5af2', '#40c8e0', '#ff9f0a', '#ff375f', '#30d158', '#5e5ce6', '#ff453a'];
-function colorFor(id) {
-  let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return PALETTE[h % PALETTE.length];
-}
-
 const strip = document.getElementById('tabs');
 const home = document.getElementById('home');
 home.addEventListener('click', () => window.tabsApi.home());
@@ -27,7 +20,8 @@ window.tabsApi.onTabs(({ tabs, active }) => {
       mark.className = 'spin';
     } else {
       mark.className = 'chip';
-      mark.style.background = colorFor(t.id);
+      mark.style.background = window.DashIcons.resolveColor(t.color, t.id);
+      mark.innerHTML = window.DashIcons.iconSvg(t.icon, 2);
     }
     const name = document.createElement('span');
     name.className = 'name';

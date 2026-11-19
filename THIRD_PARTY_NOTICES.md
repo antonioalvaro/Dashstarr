@@ -7,7 +7,7 @@ Dashstarr is MIT licensed (see `LICENSE`). It includes or is built with the soft
 | Component | Used for | License |
 | --- | --- | --- |
 | [Electron](https://github.com/electron/electron) and Chromium | App runtime | MIT (Electron); Chromium components under their own licenses, see `LICENSES.chromium.html` in the app |
-| [Tabler Icons](https://github.com/tabler/tabler-icons) | App icon (location-bolt) | MIT |
+| [Tabler Icons](https://github.com/tabler/tabler-icons) | App icon (location-bolt) and service tile icons | MIT |
 | [Go](https://go.dev) standard library | Tailscale helper | BSD-3-Clause |
 | [filippo.io/edwards25519](https://pkg.go.dev/filippo.io/edwards25519) v1.2.0 | Tailscale helper | BSD-3-Clause |
 | [github.com/coder/websocket](https://pkg.go.dev/github.com/coder/websocket) v1.8.12 | Tailscale helper | ISC |

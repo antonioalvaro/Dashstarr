@@ -18,7 +18,8 @@
     .tab { flex: 0 1 210px; min-width: 70px; height: 28px; display: flex; align-items: center; gap: 7px; padding: 0 6px 0 9px; border-radius: 7px; background: var(--tab); }
     .tab:hover { background: var(--hover); }
     .tab.active { background: var(--tab-active); box-shadow: 0 0 0 1px var(--border); }
-    .chip { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+    .chip { width: 18px; height: 18px; border-radius: 5px; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; }
+    .chip svg { width: 12px; height: 12px; }
     .spin { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--muted); border-top-color: transparent; animation: s .8s linear infinite; flex: none; }
     @keyframes s { to { transform: rotate(360deg); } }
     .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -34,6 +35,7 @@
     </div>
     <div class="tabs" id="tabs"></div>
   </div>
+  <script src="icons.js"></script>
   <script src="tabs.js"></script>
 </body>
 </html>

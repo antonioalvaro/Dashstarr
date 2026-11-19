@@ -132,6 +132,7 @@ function ensureWindow() {
     weMadeFullscreen = false;
     mainWin = null;
     homeView = null;
+    buildMenu();
   });
   mainWin.once('ready-to-show', () => { if (!locked) mainWin.show(); });
   layout();
@@ -199,7 +200,10 @@ function layout() {
   }
   mainWin.setTitle(active ? tabs.get(active).name : 'Dashstarr');
   mainWin.webContents.send('tabs', {
-    tabs: order.map((id) => ({ id, name: tabs.get(id).name, loading: tabs.get(id).loading })),
+    tabs: order.map((id) => {
+      const t = tabs.get(id);
+      return { id, name: t.name, icon: t.icon || '', color: t.color || '', loading: t.loading };
+    }),
     active,
   });
   if (homeView && !homeView.webContents.isDestroyed()) homeView.webContents.send('open', order);
@@ -291,7 +295,7 @@ function openSession(id) {
   const wc = view.webContents;
 
   // Keep the stream smooth and the screen awake while a session is open.
-  const tab = { id, view, url, origin, name: server.name, loading: true, popups: new Set(), blocker: powerSaveBlocker.start('prevent-display-sleep') };
+  const tab = { id, view, url, origin, name: server.name, icon: server.icon || '', color: server.color || '', loading: true, popups: new Set(), blocker: powerSaveBlocker.start('prevent-display-sleep') };
   tabs.set(id, tab);
   order.push(id);
 
@@ -332,6 +336,7 @@ function openSession(id) {
 
   wc.loadURL(url);
   activate(id);
+  buildMenu();
   store.updateServer({ id, lastConnected: Date.now() });
   sendServers();
 }
@@ -397,6 +402,7 @@ function closeTab(id) {
   powerSaveBlocker.stop(t.blocker);
   tabs.delete(id);
   order = order.filter((x) => x !== id);
+  buildMenu();
   if (active === id) {
     // Go to the neighbouring connection, or Home when it was the last one.
     activate(order.length ? order[Math.min(idx, order.length - 1)] : null);
@@ -614,13 +620,24 @@ ipcMain.handle('servers:list', () => store.listServers());
 
 ipcMain.handle('servers:add', (_e, data) => {
   const r = store.addServer(data);
-  if (!r.error) { sendServers(); refreshStatus(); }
+  if (!r.error) { sendServers(); refreshStatus(); buildMenu(); }
   return r;
 });
 
 ipcMain.handle('servers:update', (_e, data) => {
   const r = store.updateServer(data);
-  if (!r.error) { sendServers(); refreshStatus(); }
+  if (!r.error) {
+    const t = tabs.get(r.id);
+    if (t) {
+      t.name = r.name;
+      t.icon = r.icon || '';
+      t.color = r.color || '';
+      layout();
+    }
+    sendServers();
+    refreshStatus();
+    buildMenu();
+  }
   return r;
 });
 
@@ -636,6 +653,7 @@ ipcMain.handle('quick-connect', (_e, address) => {
     server = store.addServer({ name: '', address });
     sendServers();
     refreshStatus();
+    buildMenu();
   }
   openSession(server.id);
   return server;
@@ -652,9 +670,10 @@ ipcMain.on('context-menu', (_e, id) => {
     {
       label: 'Duplicate',
       click: () => {
-        store.addServer({ name: `${server.name} copy`, address: server.address });
+        store.addServer({ name: `${server.name} copy`, address: server.address, icon: server.icon, color: server.color });
         sendServers();
         refreshStatus();
+        buildMenu();
       },
     },
     { type: 'separator' },
@@ -680,6 +699,7 @@ function removeWithConfirm(id) {
   if (url) store.deleteCredential(store.hostKey(url));
   store.removeServer(id);
   sendServers();
+  buildMenu();
   return true;
 }
 
@@ -739,7 +759,9 @@ ipcMain.on('ts:menu', () => {
 
 let locked = false;
 let lockWin = null;
+let quickLockWin = null;
 let settingsWin = null;
+let sessionLock = null; // one-time { salt, hash, touchId } set via Quick Lock
 let hiddenWins = [];
 let afterUnlock = [];
 let failures = 0;
@@ -749,6 +771,7 @@ const lockEnabled = () => {
   const l = store.getLock();
   return !!(l.enabled && l.hash);
 };
+const activeLock = () => sessionLock || (lockEnabled() ? store.getLock() : null);
 const touchIdAvailable = () => {
   try { return process.platform === 'darwin' && systemPreferences.canPromptTouchID(); } catch { return false; }
 };
@@ -771,9 +794,13 @@ function allSessionContents() {
   return list;
 }
 
-function lockApp() {
-  if (locked || !lockEnabled()) return;
+function lockApp(tempLock = null) {
+  if (locked) return;
+  if (tempLock) sessionLock = tempLock;
+  if (!activeLock()) return;
   locked = true;
+  if (quickLockWin && !quickLockWin.isDestroyed()) quickLockWin.destroy();
+  quickLockWin = null;
   hiddenWins = BrowserWindow.getAllWindows().filter((w) => w !== lockWin && w.isVisible());
   for (const w of hiddenWins) w.hide();
   for (const wc of allSessionContents()) wc.setAudioMuted(true);
@@ -783,6 +810,7 @@ function lockApp() {
 
 function unlockApp() {
   locked = false;
+  sessionLock = null;
   failures = 0;
   blockedUntil = 0;
   for (const wc of allSessionContents()) wc.setAudioMuted(false);
@@ -798,6 +826,53 @@ function unlockApp() {
   if (mainWin && !mainWin.isDestroyed()) mainWin.focus();
   if (lockWin) { lockWin.destroy(); lockWin = null; }
 }
+
+function quickLock() {
+  if (locked) return showLockWindow();
+  if (lockEnabled()) return lockApp();
+  if (quickLockWin && !quickLockWin.isDestroyed()) {
+    quickLockWin.show();
+    quickLockWin.focus();
+    return;
+  }
+  const parent = mainWin && !mainWin.isDestroyed() ? mainWin : null;
+  quickLockWin = new BrowserWindow({
+    parent: parent || undefined,
+    modal: !!parent,
+    width: 360,
+    height: touchIdAvailable() ? 310 : 275,
+    useContentSize: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    title: 'Quick Lock',
+    show: false,
+    webPreferences: webPrefs({ preload: path.join(__dirname, 'preload-quicklock.js') }),
+  });
+  quickLockWin.loadFile(path.join(__dirname, 'quicklock.html'));
+  lockDownInternalView(quickLockWin.webContents);
+  quickLockWin.once('ready-to-show', () => { quickLockWin?.show(); quickLockWin?.focus(); });
+  quickLockWin.on('closed', () => { quickLockWin = null; });
+}
+
+ipcMain.handle('quicklock:info', () => ({ touchIdAvailable: touchIdAvailable() }));
+
+ipcMain.handle('quicklock:submit', (e, data) => {
+  if (!quickLockWin || e.sender !== quickLockWin.webContents || locked) return { error: 'Not allowed.' };
+  if (!data || typeof data !== 'object') return { error: 'Invalid input.' };
+  const pass = String(data.password || '');
+  const confirm = String(data.confirm || '');
+  if (pass.length < 4) return { error: 'Use at least 4 characters for the password.' };
+  if (pass !== confirm) return { error: "The passwords don't match." };
+  const { salt, hash } = store.hashPassword(pass);
+  lockApp({ salt, hash, touchId: !!data.touchId && touchIdAvailable() });
+  return { ok: true };
+});
+
+ipcMain.on('quicklock:cancel', (e) => {
+  if (quickLockWin && !quickLockWin.isDestroyed() && e.sender === quickLockWin.webContents) quickLockWin.close();
+});
 
 function showLockWindow() {
   if (lockWin) {
@@ -842,7 +917,7 @@ function startLockWatchers() {
 }
 
 ipcMain.handle('lock:info', () => {
-  const l = store.getLock();
+  const l = activeLock() || {};
   return { needUser: !!l.user, touchId: !!l.touchId && touchIdAvailable() };
 });
 
@@ -852,17 +927,21 @@ ipcMain.handle('lock:unlock', (e, data) => {
   if (now < blockedUntil) {
     return { ok: false, error: `Too many attempts. Try again in ${Math.ceil((blockedUntil - now) / 1000)} seconds.` };
   }
-  if (store.verifyLock(data?.user, data?.pass)) {
+  const ok = sessionLock
+    ? store.verifyHash(data?.pass, sessionLock.salt, sessionLock.hash)
+    : store.verifyLock(data?.user, data?.pass);
+  if (ok) {
     unlockApp();
     return { ok: true };
   }
   failures += 1;
   if (failures >= 5) blockedUntil = now + 30000 * (failures - 4); // 30 s, 60 s, 90 s...
-  return { ok: false, error: store.getLock().user ? 'Wrong username or password.' : 'Wrong password.' };
+  return { ok: false, error: activeLock()?.user ? 'Wrong username or password.' : 'Wrong password.' };
 });
 
 ipcMain.handle('lock:touchid', async (e) => {
-  if (!lockWin || e.sender !== lockWin.webContents || !store.getLock().touchId || !touchIdAvailable()) return { ok: false };
+  const l = activeLock();
+  if (!lockWin || e.sender !== lockWin.webContents || !l?.touchId || !touchIdAvailable()) return { ok: false };
   try {
     await systemPreferences.promptTouchID('unlock Dashstarr');
     unlockApp();
@@ -960,6 +1039,19 @@ function forgetLogin() {
   else dialog.showMessageBox(msgOpts);
 }
 
+function openAddService() {
+  if (locked) return showLockWindow();
+  showHome();
+  if (!homeView || homeView.webContents.isDestroyed()) return;
+  if (homeView.webContents.isLoading()) {
+    homeView.webContents.once('did-finish-load', () => {
+      if (homeView && !homeView.webContents.isDestroyed()) homeView.webContents.send('add');
+    });
+  } else {
+    homeView.webContents.send('add');
+  }
+}
+
 function buildMenu() {
   const tabKeys = Array.from({ length: 9 }, (_, i) => ({
     label: `Connection ${i + 1}`,
@@ -976,6 +1068,18 @@ function buildMenu() {
     ]));
     return;
   }
+  const servers = store.listServers();
+  const connectionItems = servers.length
+    ? servers.map((s) => ({
+      label: String(s.name || s.address).replace(/&/g, '&&'),
+      type: 'checkbox',
+      checked: tabs.has(s.id),
+      toolTip: s.address,
+      click: () => openSession(s.id),
+    }))
+    : [{ label: 'No saved services', enabled: false }];
+  connectionItems.push({ type: 'separator' }, { label: 'Add Service…', click: openAddService });
+
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
       label: app.name,
@@ -983,7 +1087,7 @@ function buildMenu() {
         { role: 'about' },
         { type: 'separator' },
         { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: openSettings },
-        { label: 'Lock Now', accelerator: 'CmdOrCtrl+Shift+L', enabled: lockEnabled(), click: lockApp },
+        { label: 'Quick Lock', accelerator: 'CmdOrCtrl+Shift+L', click: quickLock },
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
@@ -995,6 +1099,10 @@ function buildMenu() {
       ],
     },
     { role: 'editMenu' },
+    {
+      label: 'Connection',
+      submenu: connectionItems,
+    },
     {
       label: 'View',
       submenu: [
