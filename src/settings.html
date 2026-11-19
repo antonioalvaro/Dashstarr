@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>Settings</title>
+  <style>
+    :root { --bg: #f5f5f7; --card: #fff; --text: #1d1d1f; --muted: #6e6e73; --border: rgba(0,0,0,.12); --input: #fff; --accent: #0a84ff; color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #1e1e20; --card: #2a2a2d; --text: #f5f5f7; --muted: #a1a1a6; --border: rgba(255,255,255,.12); --input: #1e1e20; } }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; padding: 22px; background: var(--bg); color: var(--text); font: 13px -apple-system, BlinkMacSystemFont, sans-serif; user-select: none; }
+    h2 { font-size: 15px; margin: 0 0 4px; }
+    p.lead { margin: 0 0 14px; color: var(--muted); font-size: 12px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .row.toggle { font-weight: 600; }
+    label.field { display: block; margin-bottom: 10px; font-weight: 500; }
+    label.field small { font-weight: 400; color: var(--muted); }
+    input[type=text], input[type=password], select { display: block; width: 100%; margin-top: 4px; padding: 7px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--input); color: var(--text); font: inherit; outline: none; user-select: text; }
+    input:focus, select:focus { border-color: var(--accent); }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
+    .check { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .buttons { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+    button { font: inherit; padding: 7px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+    .msg { min-height: 16px; margin-top: 10px; font-size: 12px; }
+    .msg.error { color: #ff453a; }
+    .msg.ok { color: #30d158; }
+  </style>
+</head>
+<body>
+  <form id="f" autocomplete="off">
+    <h2>App Lock</h2>
+    <p class="lead">Ask for a password when Dashstarr opens, and lock it again after a while.</p>
+    <div class="card">
+      <label class="row toggle"><input type="checkbox" id="enabled"> Require a password to open the app</label>
+
+      <div id="opts">
+        <label class="field">Username <small>(optional, leave empty for password only)</small>
+          <input id="user" type="text" spellcheck="false">
+        </label>
+        <label class="field"><span id="pwLabel">Password</span>
+          <input id="password" type="password">
+        </label>
+        <label class="field">Confirm password
+          <input id="confirm" type="password">
+        </label>
+        <hr>
+        <label class="field">Lock automatically after
+          <select id="timeout">
+            <option value="0">Never</option>
+            <option value="1">1 minute of inactivity</option>
+            <option value="5">5 minutes of inactivity</option>
+            <option value="10">10 minutes of inactivity</option>
+            <option value="15">15 minutes of inactivity</option>
+            <option value="30">30 minutes of inactivity</option>
+            <option value="60">1 hour of inactivity</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="sleep"> Lock when the Mac sleeps or the screen locks</label>
+        <label class="check" id="touchRow" hidden><input type="checkbox" id="touch"> Allow unlocking with Touch ID</label>
+      </div>
+
+      <div id="currentBox" hidden>
+        <hr>
+        <label class="field">Current password <small>(needed to change these settings)</small>
+          <input id="current" type="password">
+        </label>
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button type="button" id="lockNow" hidden>Lock Now</button>
+      <span></span>
+      <button type="submit" class="primary">Save</button>
+    </div>
+    <p class="msg" id="msg"></p>
+  </form>
+  <script src="settings.js"></script>
+</body>
+</html>

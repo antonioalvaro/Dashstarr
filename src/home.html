@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>Dashstarr</title>
+  <link rel="stylesheet" href="home.css">
+</head>
+<body>
+  <header class="topbar">
+    <form id="quick" class="quick" autocomplete="off">
+      <input id="address" type="text" spellcheck="false" placeholder="Enter an IP address, e.g. 192.168.1.50:8080" autofocus>
+      <button type="submit" class="primary">Connect</button>
+      <button type="button" id="tsPill" class="ts-pill" hidden><span class="ts-dot"></span><span id="tsLabel">Tailscale</span></button>
+    </form>
+  </header>
+
+  <main>
+    <div class="section-head">
+      <h2>Your Servers</h2>
+      <span class="hint">Double click to connect, right click for options</span>
+    </div>
+    <div id="grid" class="grid"></div>
+
+    <section id="tsSection" class="ts-section" hidden>
+      <div class="section-head">
+        <h2>Tailscale Devices</h2>
+        <span class="hint" id="tsHint"></span>
+      </div>
+      <div id="tsBanner" class="ts-banner" hidden>
+        <span id="tsBannerText"></span>
+        <button type="button" id="tsBannerBtn" class="primary"></button>
+      </div>
+      <div id="tsDevices" class="devices"></div>
+    </section>
+  </main>
+
+  <dialog id="editor">
+    <form id="editForm" method="dialog" autocomplete="off">
+      <h3 id="editTitle">Add Server</h3>
+      <label>Name<input id="editName" type="text" placeholder="My Desktop" spellcheck="false"></label>
+      <label>Address<input id="editAddress" type="text" placeholder="192.168.1.50:8080" spellcheck="false" required></label>
+      <p class="small">IP or hostname with port. http:// is assumed, type https:// for TLS.</p>
+      <p id="editError" class="error"></p>
+      <div class="buttons">
+        <button type="button" id="editCancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="home.js"></script>
+</body>
+</html>

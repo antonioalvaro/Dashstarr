@@ -1,0 +1,75 @@
+{
+  "name": "dashstarr",
+  "productName": "Dashstarr",
+  "version": "2.0.0",
+  "description": "Standalone Chromium based client for Selkies Docker desktops",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac",
+    "helper": "cd helper && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags='-s -w' -o ../bin/dt-arm64 . && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o ../bin/dt-x64 . && lipo -create ../bin/dt-arm64 ../bin/dt-x64 -output ../bin/dashstarr-tailscale && rm ../bin/dt-arm64 ../bin/dt-x64"
+  },
+  "devDependencies": {
+    "electron": "43.8.11",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "local.dashstarr.app",
+    "productName": "Dashstarr",
+    "files": [
+      "src/**/*"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "category": "public.app-category.utilities",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "minimumSystemVersion": "12.0",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Lets you send your microphone to the remote Selkies desktop.",
+        "NSCameraUsageDescription": "Lets you send your webcam to the remote Selkies desktop.",
+        "NSLocalNetworkUsageDescription": "Connects to Selkies servers on your local network."
+      }
+    },
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin",
+        "filter": [
+          "dashstarr-tailscale"
+        ]
+      },
+      {
+        "from": "LICENSE",
+        "to": "licenses/LICENSE.txt"
+      },
+      {
+        "from": "THIRD_PARTY_NOTICES.md",
+        "to": "licenses/THIRD_PARTY_NOTICES.md"
+      },
+      {
+        "from": "node_modules/electron/dist/LICENSE",
+        "to": "licenses/LICENSE.electron.txt"
+      },
+      {
+        "from": "node_modules/electron/dist/LICENSES.chromium.html",
+        "to": "licenses/LICENSES.chromium.html"
+      }
+    ]
+  },
+  "license": "MIT",
+  "author": "YOUR NAME"
+}
