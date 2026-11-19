@@ -1,6 +1,6 @@
 # Dashstarr
 
-A standalone Mac app for Selkies Docker desktops, using Chrome's engine (Chromium) so Selkies behaves like it does in Chrome. Runs on macOS 12 Monterey and newer, Apple Silicon and Intel.
+A standalone Mac app for Selkies VNC and others self hosted services, it uses Chrome's engine (Chromium). Runs on macOS 12 Monterey and newer, Apple Silicon and Intel.
 
 ## Features
 
