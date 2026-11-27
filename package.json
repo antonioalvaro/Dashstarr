@@ -8,8 +8,8 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --mac",
-    "dist:linux": "electron-builder --linux deb --x64 --arm64",
+    "dist": "electron-builder --mac --publish never",
+    "dist:linux": "electron-builder --linux deb --x64 --arm64 --publish never",
     "helper": "cd helper && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags='-s -w' -o ../bin/dt-arm64 . && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o ../bin/dt-x64 . && lipo -create ../bin/dt-arm64 ../bin/dt-x64 -output ../bin/dashstarr-tailscale && rm ../bin/dt-arm64 ../bin/dt-x64",
     "helper:linux": "cd helper && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o ../bin/dashstarr-tailscale-linux-x64 . && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags='-s -w' -o ../bin/dashstarr-tailscale-linux-arm64 ."
   },
