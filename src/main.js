@@ -38,6 +38,9 @@ if (!app.requestSingleInstanceLock()) {
 // ---------------------------------------------------------------------------
 
 const TABBAR_HEIGHT = 38;
+const APP_ICON = path.join(__dirname, 'assets', 'icon.png');
+const IS_MAC = process.platform === 'darwin';
+const linuxIcon = IS_MAC ? {} : { icon: APP_ICON };
 let mainWin = null;
 let homeView = null;
 const tabs = new Map(); // server id -> { id, view, url, origin, name, loading, popups, blocker }
@@ -46,6 +49,7 @@ let active = null;      // server id, or null for Home
 let htmlFullscreen = false;
 let weMadeFullscreen = false;
 let quitting = false;
+let forceCloseWindow = false;
 const allPopups = new Set(); // every open pop-up window (even if kept open after its connection closes)
 let popupsToCloseOnMainClose = [];
 const SAFE_EXTERNAL_PROTOCOLS = new Set(['mailto:', 'tel:']);
@@ -69,6 +73,7 @@ function ensureWindow() {
     minHeight: 380,
     title: 'Dashstarr',
     show: false,
+    ...linuxIcon,
     webPreferences: webPrefs({ preload: path.join(__dirname, 'preload-tabs.js') }),
   });
   mainWin.loadFile(path.join(__dirname, 'tabs.html')); // the tab bar lives in the window itself
@@ -92,7 +97,15 @@ function ensureWindow() {
   mainWin.on('focus', () => { if (!active) refreshStatus(); });
   mainWin.on('close', (e) => {
     popupsToCloseOnMainClose = [];
-    if (quitting || tabs.size === 0) return;
+    const force = forceCloseWindow;
+    forceCloseWindow = false;
+    if (quitting) return;
+    if (!force && active && tabs.has(active)) {
+      e.preventDefault();
+      closeTab(active);
+      return;
+    }
+    if (tabs.size === 0) return;
     if (!confirmClose(tabs.size, 'Close the window?')) {
       e.preventDefault();
       return;
@@ -304,7 +317,8 @@ function openSession(id) {
     if (!isMainFrame || code === -3) return; // -3 = aborted (normal during redirects)
     let why = desc;
     if (tailscale.isTailnetHost(new URL(url).hostname) && !tailscale.state.running) {
-      why = 'This is a Tailscale address. Turn on Tailscale from the Home screen (Cmd+0), or start the Tailscale app on this Mac.';
+      const homeKey = IS_MAC ? 'Cmd+0' : 'Ctrl+0';
+      why = `This is a Tailscale address. Turn on Tailscale from the Home screen (${homeKey}), or start the Tailscale app on this device.`;
     }
     wc.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(errorPage(server.name, why, url)));
   });
@@ -359,6 +373,7 @@ function handlePopups(wc, tab) {
           minWidth: 320,
           minHeight: 240,
           autoHideMenuBar: true,
+          ...linuxIcon,
           webPreferences: webPrefs({ backgroundThrottling: false, spellcheck: false }),
         },
       };
@@ -421,6 +436,28 @@ function cycleTab(step) {
 ipcMain.on('tab:activate', (_e, id) => activate(id));
 ipcMain.on('tab:close', (_e, id) => closeTab(id));
 ipcMain.on('tab:home', () => activate(null));
+ipcMain.on('tab:context-menu', (_e, id) => {
+  const t = tabs.get(id);
+  if (!t || !mainWin) return;
+  const items = [
+    { label: 'Close Connection', click: () => closeTab(id) },
+  ];
+  if (order.length > 1) {
+    items.push({
+      label: 'Close Other Connections',
+      click: () => {
+        for (const otherId of order.filter((x) => x !== id)) {
+          if (!closeTab(otherId)) break;
+        }
+      },
+    });
+  }
+  items.push(
+    { type: 'separator' },
+    { label: 'Reload', click: () => { if (!t.view.webContents.isDestroyed()) t.view.webContents.reload(); } },
+  );
+  Menu.buildFromTemplate(items).popup({ window: mainWin });
+});
 
 function errorPage(name, desc, url) {
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -643,6 +680,13 @@ ipcMain.handle('servers:update', (_e, data) => {
 
 ipcMain.handle('servers:remove', (_e, id) => removeWithConfirm(id));
 
+ipcMain.handle('servers:reorder', (_e, ids) => {
+  const list = store.reorderServers(ids);
+  sendServers();
+  buildMenu();
+  return list;
+});
+
 ipcMain.handle('connect', (_e, id) => openSession(id));
 
 ipcMain.handle('quick-connect', (_e, address) => {
@@ -664,8 +708,17 @@ ipcMain.handle('status:refresh', () => refreshStatus());
 ipcMain.on('context-menu', (_e, id) => {
   const server = store.getServer(id);
   if (!server || !mainWin) return;
-  Menu.buildFromTemplate([
-    { label: 'Connect', click: () => openSession(id) },
+  const isOpen = tabs.has(id);
+  const items = isOpen
+    ? [
+      { label: 'Switch to Connection', click: () => openSession(id) },
+      { label: 'Close Connection', click: () => closeTab(id) },
+      { type: 'separator' },
+    ]
+    : [
+      { label: 'Connect', click: () => openSession(id) },
+    ];
+  items.push(
     { label: 'Edit…', click: () => homeView?.webContents.send('edit', id) },
     {
       label: 'Duplicate',
@@ -678,7 +731,8 @@ ipcMain.on('context-menu', (_e, id) => {
     },
     { type: 'separator' },
     { label: 'Remove…', click: () => removeWithConfirm(id) },
-  ]).popup({ window: mainWin });
+  );
+  Menu.buildFromTemplate(items).popup({ window: mainWin });
 });
 
 function removeWithConfirm(id) {
@@ -848,6 +902,7 @@ function quickLock() {
     fullscreenable: false,
     title: 'Quick Lock',
     show: false,
+    ...linuxIcon,
     webPreferences: webPrefs({ preload: path.join(__dirname, 'preload-quicklock.js') }),
   });
   quickLockWin.loadFile(path.join(__dirname, 'quicklock.html'));
@@ -889,16 +944,18 @@ function showLockWindow() {
     fullscreenable: false,
     title: 'Dashstarr',
     show: false,
+    ...linuxIcon,
     webPreferences: webPrefs({ preload: path.join(__dirname, 'preload-lock.js') }),
   });
   lockWin.loadFile(path.join(__dirname, 'lock.html'));
   lockDownInternalView(lockWin.webContents);
   lockWin.once('ready-to-show', () => { lockWin?.show(); lockWin?.focus(); });
-  // Closing the lock screen just hides it (click the Dock icon to get it back).
+  // Closing the lock screen hides it on macOS (click Dock icon to reopen) or minimizes it on Linux.
   lockWin.on('close', (e) => {
     if (locked && !quitting) {
       e.preventDefault();
-      lockWin.hide();
+      if (IS_MAC) lockWin.hide();
+      else lockWin.minimize();
     }
   });
   lockWin.on('closed', () => { lockWin = null; });
@@ -969,6 +1026,7 @@ function openSettings() {
     fullscreenable: false,
     title: 'Settings',
     show: false,
+    ...linuxIcon,
     webPreferences: webPrefs({ preload: path.join(__dirname, 'preload-settings.js') }),
   });
   settingsWin.loadFile(path.join(__dirname, 'settings.html'));
@@ -1063,7 +1121,12 @@ function buildMenu() {
   if (locked) {
     // Nothing that could reveal or reach the app while it's locked.
     Menu.setApplicationMenu(Menu.buildFromTemplate([
-      { label: app.name, submenu: [{ role: 'hide' }, { type: 'separator' }, { role: 'quit' }] },
+      {
+        label: app.name,
+        submenu: IS_MAC
+          ? [{ role: 'hide' }, { type: 'separator' }, { role: 'quit' }]
+          : [{ role: 'quit' }],
+      },
       { role: 'editMenu' },
     ]));
     return;
@@ -1080,24 +1143,49 @@ function buildMenu() {
     : [{ label: 'No saved services', enabled: false }];
   connectionItems.push({ type: 'separator' }, { label: 'Add Service…', click: openAddService });
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
+  const appSubmenu = [
+    ...(IS_MAC ? [{ role: 'about' }, { type: 'separator' }] : []),
+    { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: openSettings },
+    { label: 'Quick Lock', accelerator: 'CmdOrCtrl+Shift+L', click: quickLock },
+    ...(IS_MAC ? [
+      { type: 'separator' },
+      { role: 'services' },
+      { type: 'separator' },
+      { role: 'hide' },
+      { role: 'hideOthers' },
+      { role: 'unhide' },
+    ] : []),
+    { type: 'separator' },
+    { role: 'quit' },
+  ];
+
+  const windowSubmenu = [
     {
-      label: app.name,
-      submenu: [
-        { role: 'about' },
-        { type: 'separator' },
-        { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: openSettings },
-        { label: 'Quick Lock', accelerator: 'CmdOrCtrl+Shift+L', click: quickLock },
-        { type: 'separator' },
-        { role: 'services' },
-        { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideOthers' },
-        { role: 'unhide' },
-        { type: 'separator' },
-        { role: 'quit' },
-      ],
+      label: 'Close Connection',
+      accelerator: 'CmdOrCtrl+W',
+      click: () => {
+        const focused = BrowserWindow.getFocusedWindow();
+        if (focused && focused !== mainWin) focused.close();
+        else if (active) closeTab(active);
+        else mainWin?.close();
+      },
     },
+    {
+      label: 'Close Window',
+      accelerator: 'CmdOrCtrl+Shift+W',
+      click: () => {
+        const target = BrowserWindow.getFocusedWindow() || mainWin;
+        if (target === mainWin) forceCloseWindow = true;
+        target?.close();
+      },
+    },
+    { type: 'separator' },
+    { role: 'minimize' },
+    ...(IS_MAC ? [{ role: 'zoom' }, { type: 'separator' }, { role: 'front' }] : []),
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { label: app.name, submenu: appSubmenu },
     { role: 'editMenu' },
     {
       label: 'Connection',
@@ -1122,24 +1210,7 @@ function buildMenu() {
     },
     {
       label: 'Window',
-      submenu: [
-        {
-          label: 'Close Connection',
-          accelerator: 'CmdOrCtrl+W',
-          click: () => {
-            const focused = BrowserWindow.getFocusedWindow();
-            if (focused && focused !== mainWin) focused.close();
-            else if (active) closeTab(active);
-            else mainWin?.close();
-          },
-        },
-        { label: 'Close Window', accelerator: 'CmdOrCtrl+Shift+W', click: () => (BrowserWindow.getFocusedWindow() || mainWin)?.close() },
-        { type: 'separator' },
-        { role: 'minimize' },
-        { role: 'zoom' },
-        { type: 'separator' },
-        { role: 'front' },
-      ],
+      submenu: windowSubmenu,
     },
   ]));
 }
@@ -1149,6 +1220,7 @@ function buildMenu() {
 // ---------------------------------------------------------------------------
 
 app.whenReady().then(() => {
+  if (!IS_MAC) app.setDesktopName?.('dashstarr.desktop');
   const ses = session.defaultSession;
   // These are your own servers: allow mic, camera, clipboard, fullscreen, pointer lock etc.
   ses.setPermissionRequestHandler((_wc, _permission, cb) => cb(true));
@@ -1168,7 +1240,7 @@ app.whenReady().then(() => {
     });
   });
 
-  if (!app.isPackaged) app.dock?.setIcon(path.join(__dirname, 'assets', 'icon.png'));
+  if (!app.isPackaged) app.dock?.setIcon(APP_ICON);
   if (store.getSettings().tailscaleEnabled) tailscale.start();
   const startUp = () => {
     showHome();

@@ -12,11 +12,13 @@ const editColors = document.getElementById('editColors');
 const editCustomColor = document.getElementById('editCustomColor');
 const editCustomLabel = editCustomColor.closest('.color-custom');
 const editIconSearch = document.getElementById('editIconSearch');
+const editIconCount = document.getElementById('editIconCount');
 const editIconGrid = document.getElementById('editIconGrid');
 
 let servers = [];
 let selectedId = null;
 let editingId = null;
+let draggedId = null;
 let selectedIcon = window.DashIcons.DEFAULT_ICON;
 let selectedColor = '';
 const status = {}; // id -> true / false (missing = checking)
@@ -43,6 +45,24 @@ function el(tag, cls, html) {
   return e;
 }
 
+function moveServer(fromId, toId) {
+  if (!fromId || !toId || fromId === toId) return;
+  const fromIdx = servers.findIndex((s) => s.id === fromId);
+  const toIdx = servers.findIndex((s) => s.id === toId);
+  if (fromIdx < 0 || toIdx < 0) return;
+  const [moved] = servers.splice(fromIdx, 1);
+  servers.splice(toIdx, 0, moved);
+  render();
+  window.api.reorder(servers.map((s) => s.id));
+}
+
+function clearDragState() {
+  draggedId = null;
+  for (const t of grid.querySelectorAll('.tile.dragging, .tile.drag-over')) {
+    t.classList.remove('dragging', 'drag-over');
+  }
+}
+
 function render() {
   grid.textContent = '';
   for (const s of servers) {
@@ -50,6 +70,7 @@ function render() {
     const tile = el('div', 'tile' + (s.id === selectedId ? ' selected' : '') + (isOpen ? ' open' : ''));
     tile.tabIndex = 0;
     tile.dataset.id = s.id;
+    tile.draggable = true;
     const thumb = el('div', 'thumb', window.DashIcons.iconSvg(s.icon, 1.6));
     thumb.style.background = window.DashIcons.resolveColor(s.color, s.id);
     if (isTailnetAddress(s.address)) {
@@ -77,6 +98,31 @@ function render() {
       select(s.id);
       window.api.contextMenu(s.id);
     });
+    tile.addEventListener('dragstart', (e) => {
+      draggedId = s.id;
+      tile.classList.add('dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', s.id);
+      }
+    });
+    tile.addEventListener('dragover', (e) => {
+      if (!draggedId || draggedId === s.id) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      tile.classList.add('drag-over');
+    });
+    tile.addEventListener('dragleave', () => {
+      tile.classList.remove('drag-over');
+    });
+    tile.addEventListener('drop', (e) => {
+      e.preventDefault();
+      tile.classList.remove('drag-over');
+      const fromId = draggedId || e.dataTransfer?.getData('text/plain');
+      clearDragState();
+      moveServer(fromId, s.id);
+    });
+    tile.addEventListener('dragend', clearDragState);
     grid.append(tile);
   }
 
@@ -175,19 +221,17 @@ function updatePreview() {
   editPreviewLabel.textContent = `${entry ? entry.label : iconId}  ·  ${selectedColor ? selectedColor.toUpperCase() : 'Auto color'}`;
 }
 
-function renderIconGrid(filter = '') {
-  const q = String(filter || '').trim().toLowerCase();
-  const matches = q
-    ? window.DashIcons.ICONS.filter((ic) => `${ic.id} ${ic.label} ${ic.tags}`.toLowerCase().includes(q))
-    : window.DashIcons.ICONS;
-  editIconGrid.textContent = '';
-  if (!matches.length) {
-    const empty = el('div', 'icon-empty');
-    empty.textContent = 'No matching Tabler icons';
-    editIconGrid.append(empty);
-    return;
-  }
-  for (const ic of matches) {
+const ICON_PAGE_SIZE = 120;
+let filteredIcons = window.DashIcons.ICONS;
+let renderedIconCount = 0;
+
+function appendIconBatch() {
+  const existingMore = editIconGrid.querySelector('.icon-more');
+  if (existingMore) existingMore.remove();
+  const nextEnd = Math.min(renderedIconCount + ICON_PAGE_SIZE, filteredIcons.length);
+  const frag = document.createDocumentFragment();
+  for (let i = renderedIconCount; i < nextEnd; i++) {
+    const ic = filteredIcons[i];
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'icon-btn' + (ic.id === selectedIcon ? ' selected' : '');
@@ -196,20 +240,80 @@ function renderIconGrid(filter = '') {
     btn.setAttribute('aria-label', ic.label);
     btn.setAttribute('aria-selected', ic.id === selectedIcon ? 'true' : 'false');
     btn.innerHTML = window.DashIcons.iconSvg(ic.id, 1.75);
-    btn.addEventListener('click', () => {
-      selectedIcon = ic.id;
-      for (const b of editIconGrid.querySelectorAll('.icon-btn')) {
-        const active = b.dataset.icon === selectedIcon;
-        b.classList.toggle('selected', active);
-        b.setAttribute('aria-selected', active ? 'true' : 'false');
-      }
-      updatePreview();
-    });
-    editIconGrid.append(btn);
+    frag.append(btn);
   }
+  renderedIconCount = nextEnd;
+  if (renderedIconCount < filteredIcons.length) {
+    const remaining = filteredIcons.length - renderedIconCount;
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'icon-more';
+    more.textContent = `Show more (${remaining.toLocaleString()} remaining)`;
+    more.addEventListener('click', appendIconBatch);
+    frag.append(more);
+  }
+  editIconGrid.append(frag);
+}
+
+function renderIconGrid(filter = '') {
+  const q = String(filter || '').trim().toLowerCase();
+  const terms = q ? q.split(/\s+/) : [];
+  let matches;
+  if (terms.length) {
+    matches = window.DashIcons.ICONS.filter((ic) => {
+      const hay = ic.search || `${ic.id} ${ic.label} ${ic.tags}`.toLowerCase();
+      for (const term of terms) {
+        if (!hay.includes(term)) return false;
+      }
+      return true;
+    });
+  } else {
+    matches = window.DashIcons.ICONS;
+    const sel = window.DashIcons.ICON_MAP[selectedIcon];
+    if (sel) {
+      const idx = matches.indexOf(sel);
+      if (idx >= ICON_PAGE_SIZE) {
+        matches = [sel, ...matches.slice(0, idx), ...matches.slice(idx + 1)];
+      }
+    }
+  }
+  filteredIcons = matches;
+  renderedIconCount = 0;
+  editIconGrid.textContent = '';
+  editIconGrid.scrollTop = 0;
+  if (editIconCount) {
+    const total = window.DashIcons.ICONS.length.toLocaleString();
+    editIconCount.textContent = q
+      ? `${matches.length.toLocaleString()} of ${total}`
+      : `${total} icons`;
+  }
+  if (!matches.length) {
+    const empty = el('div', 'icon-empty');
+    empty.textContent = 'No matching Tabler icons';
+    editIconGrid.append(empty);
+    return;
+  }
+  appendIconBatch();
 }
 
 renderColorSwatches();
+editIconGrid.addEventListener('click', (e) => {
+  const btn = e.target.closest('.icon-btn');
+  if (!btn) return;
+  selectedIcon = btn.dataset.icon;
+  for (const b of editIconGrid.querySelectorAll('.icon-btn')) {
+    const active = b.dataset.icon === selectedIcon;
+    b.classList.toggle('selected', active);
+    b.setAttribute('aria-selected', active ? 'true' : 'false');
+  }
+  updatePreview();
+});
+editIconGrid.addEventListener('scroll', () => {
+  if (renderedIconCount >= filteredIcons.length) return;
+  if (editIconGrid.scrollTop + editIconGrid.clientHeight >= editIconGrid.scrollHeight - 80) {
+    appendIconBatch();
+  }
+});
 editCustomColor.addEventListener('input', () => {
   selectedColor = window.DashIcons.normalizeColor(editCustomColor.value);
   updateColorSelection();
@@ -334,7 +438,7 @@ function renderTs() {
   tsLabel.textContent = !ts.enabled ? 'Tailscale off'
     : ts.running ? 'Tailscale on'
     : needsLogin ? 'Tailscale: log in' : 'Tailscale: starting…';
-  tsPill.title = ts.error || (ts.running && ts.self ? `This Mac on Tailscale: ${ts.self.name} (${ts.self.ip})` : '');
+  tsPill.title = ts.error || (ts.running && ts.self ? `This device on Tailscale: ${ts.self.name} (${ts.self.ip})` : '');
 
   tsSection.hidden = ts.available === false;
   tsDevices.textContent = '';

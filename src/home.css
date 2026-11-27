@@ -106,6 +106,11 @@ h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); }
 }
 .tile:hover { background: color-mix(in srgb, var(--card), var(--text) 4%); }
 .tile.selected { border: 2px solid var(--accent); padding: 9px; background: color-mix(in srgb, var(--card), var(--accent) 12%); }
+.tile.dragging { opacity: 0.45; }
+.tile.drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
 
 .thumb {
   height: 96px;
@@ -257,6 +262,16 @@ dialog input:focus { position: relative; z-index: 1; border-color: var(--accent)
   gap: 10px;
   margin-bottom: 6px;
 }
+.icon-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.icon-count {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
 dialog .icon-head label { margin-bottom: 0; }
 #editIconSearch {
   width: 190px;
@@ -268,7 +283,7 @@ dialog .icon-head label { margin-bottom: 0; }
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 6px;
-  max-height: 152px;
+  max-height: 184px;
   overflow-y: auto;
   padding: 6px;
   border: 1px solid var(--border);
@@ -300,6 +315,17 @@ dialog .icon-head label { margin-bottom: 0; }
   text-align: center;
   font-size: 12px;
   color: var(--muted);
+}
+.icon-more {
+  grid-column: 1 / -1;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  border-radius: 6px;
+}
+.icon-more:hover {
+  background: var(--hover);
+  color: var(--text);
 }
 
 /* ---- Tailscale ---- */

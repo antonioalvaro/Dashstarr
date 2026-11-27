@@ -89,6 +89,26 @@ function removeServer(id) {
   saveServers(listServers().filter((s) => s.id !== id));
 }
 
+function reorderServers(ids) {
+  const list = listServers();
+  if (!Array.isArray(ids) || !ids.length) return list;
+  const byId = new Map(list.map((s) => [s.id, s]));
+  const next = [];
+  const seen = new Set();
+  for (const rawId of ids) {
+    const id = String(rawId || '');
+    if (byId.has(id) && !seen.has(id)) {
+      seen.add(id);
+      next.push(byId.get(id));
+    }
+  }
+  for (const s of list) {
+    if (!seen.has(s.id)) next.push(s);
+  }
+  saveServers(next);
+  return next;
+}
+
 function getServer(id) {
   return listServers().find((s) => s.id === id) || null;
 }
@@ -177,7 +197,7 @@ function deleteCredential(key) {
 
 module.exports = {
   normalize, hostKey,
-  listServers, addServer, updateServer, removeServer, getServer,
+  listServers, addServer, updateServer, removeServer, reorderServers, getServer,
   getSettings, setSettings, isTrusted, trust,
   hashPassword, getLock, setLock, verifyHash, verifyPassword, verifyLock,
   getCredential, saveCredential, deleteCredential,

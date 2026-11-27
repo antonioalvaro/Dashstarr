@@ -1,19 +1,37 @@
 # Dashstarr
 
-A standalone Mac app for Selkies VNC and others self hosted services, it uses Chrome's engine (Chromium). Runs on macOS 12 Monterey and newer, Apple Silicon and Intel.
+A standalone desktop app for Selkies VNC and other self-hosted services powered by Chromium. Runs on macOS 12 Monterey and newer (Apple Silicon and Intel) and Linux / ChromeOS / FydeOS (`amd64` and `arm64` `.deb` packages).
 
 ## Features
 
 - AnyDesk style home screen: type an IP in the top bar and press Enter, or pick a saved server tile
-- Tiles show name, address, a live online/offline dot and when you last connected, with customizable Tabler icons and colors. Double click to connect, right click to edit, duplicate or remove
-- One window: a single connection fills the whole window. Open a second one and a tab bar appears (it goes away again when you're back to one)
-- Selkies HTTP login popup, with "Remember this login" (encrypted with your macOS Keychain)
+- Tiles show name, address, a live online/offline dot and when you last connected, with all 5,500+ Tabler icons and custom colors. Double click to connect, drag to reorder, right click to connect/close, edit, duplicate or remove
+- One window: a single connection fills the whole window. Open a second one and a tab bar appears (it goes away again when you're back to one). Right-click any tab or connected Home tile to close its connection; closing the window while viewing a connection closes only that connection and returns to Home
+- Selkies HTTP login popup, with "Remember this login" (encrypted with your system keychain)
 - Plain http servers get treated as secure, so Selkies' video decoding works without https (the first connect to a new http address asks for a quick restart)
 - Self signed https certificates: asked once, "Always Trust" pins that certificate
 - Full screen, mic and webcam, gamepads, clipboard, pointer lock, file downloads to ~/Downloads
 - Screen stays awake while a session is open; asks before quitting with sessions open
 - Built-in Tailscale (optional): reach servers on your tailnet without the Tailscale app or a system VPN
-- App lock (optional): password, or username and password, to open the app, with auto-lock after inactivity and Touch ID
+- App lock (optional): password, or username and password, to open the app, with auto-lock after inactivity and Touch ID (macOS)
+
+## Install on Linux / ChromeOS / FydeOS
+
+Download the `.deb` package for your architecture (`amd64` for x86_64 or `arm64` for ARM64) from the Releases page:
+
+- **ChromeOS / FydeOS**: right-click the downloaded `.deb` in the Files app and choose **Install with Linux** (or run `sudo apt install ./dashstarr_*.deb` inside the Linux terminal).
+- **Debian / Ubuntu**:
+  ```bash
+  sudo apt install ./dashstarr_*_amd64.deb   # or _arm64.deb
+  ```
+
+To build the `.deb` packages from source on Linux:
+```bash
+npm install
+npm run helper:linux
+npm run dist:linux
+```
+The packages are written to `dist/dashstarr_<version>_amd64.deb` and `dist/dashstarr_<version>_arm64.deb`.
 
 ## Build it on your Mac
 

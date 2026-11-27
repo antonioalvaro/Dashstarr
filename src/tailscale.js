@@ -15,14 +15,21 @@ const PROXY_USER = 'selkies'; // Kept for compatibility with the prebuilt helper
 function helperPath() {
   const override = process.env.DASHSTARR_HELPER || process.env.SB_HELPER;
   if (override) return override; // for development and tests
-  const name = process.platform === 'darwin' ? 'dashstarr-tailscale' : `dashstarr-tailscale-${process.platform}`;
   const base = app.isPackaged ? path.join(process.resourcesPath, 'bin') : path.join(__dirname, '..', 'bin');
-  return path.join(base, name);
+  const candidates = process.platform === 'darwin'
+    ? ['dashstarr-tailscale']
+    : [`dashstarr-tailscale-${process.platform}-${process.arch}`, `dashstarr-tailscale-${process.platform}`, 'dashstarr-tailscale'];
+  for (const name of candidates) {
+    const full = path.join(base, name);
+    if (fs.existsSync(full)) return full;
+  }
+  return path.join(base, candidates[0]);
 }
 
 function deviceName() {
   const host = os.hostname().split('.')[0].toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '');
-  return `dashstarr-${host || 'mac'}`.slice(0, 63);
+  const fallback = process.platform === 'darwin' ? 'mac' : 'linux';
+  return `dashstarr-${host || fallback}`.slice(0, 63);
 }
 
 class Tailscale extends EventEmitter {

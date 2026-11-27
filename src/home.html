@@ -24,7 +24,7 @@
   <main>
     <div class="section-head">
       <h2>Your Servers</h2>
-      <span class="hint">Double click to connect, right click for options</span>
+      <span class="hint">Double click to connect, drag to reorder, right click for options</span>
     </div>
     <div id="grid" class="grid"></div>
 
@@ -75,7 +75,10 @@
       </div>
       <div class="field">
         <div class="icon-head">
-          <label for="editIconSearch">Icon</label>
+          <div class="icon-title-group">
+            <label for="editIconSearch">Icon</label>
+            <span id="editIconCount" class="icon-count"></span>
+          </div>
           <input id="editIconSearch" type="search" placeholder="Search Tabler icons…" spellcheck="false">
         </div>
         <div id="editIconGrid" class="icon-grid" role="listbox" aria-label="Service icon"></div>

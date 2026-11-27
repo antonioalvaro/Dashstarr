@@ -1,14 +1,17 @@
 {
   "name": "dashstarr",
   "productName": "Dashstarr",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Standalone Chromium based client for Selkies Docker desktops",
+  "homepage": "https://github.com/antonioalvaro/Dashstarr",
   "main": "src/main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --mac",
-    "helper": "cd helper && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags='-s -w' -o ../bin/dt-arm64 . && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o ../bin/dt-x64 . && lipo -create ../bin/dt-arm64 ../bin/dt-x64 -output ../bin/dashstarr-tailscale && rm ../bin/dt-arm64 ../bin/dt-x64"
+    "dist:linux": "electron-builder --linux deb --x64 --arm64",
+    "helper": "cd helper && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags='-s -w' -o ../bin/dt-arm64 . && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o ../bin/dt-x64 . && lipo -create ../bin/dt-arm64 ../bin/dt-x64 -output ../bin/dashstarr-tailscale && rm ../bin/dt-arm64 ../bin/dt-x64",
+    "helper:linux": "cd helper && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o ../bin/dashstarr-tailscale-linux-x64 . && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags='-s -w' -o ../bin/dashstarr-tailscale-linux-arm64 ."
   },
   "devDependencies": {
     "electron": "43.8.11",
@@ -42,34 +45,97 @@
         "NSMicrophoneUsageDescription": "Lets you send your microphone to the remote Selkies desktop.",
         "NSCameraUsageDescription": "Lets you send your webcam to the remote Selkies desktop.",
         "NSLocalNetworkUsageDescription": "Connects to Selkies servers on your local network."
-      }
+      },
+      "extraResources": [
+        {
+          "from": "bin",
+          "to": "bin",
+          "filter": [
+            "dashstarr-tailscale"
+          ]
+        },
+        {
+          "from": "LICENSE",
+          "to": "licenses/LICENSE.txt"
+        },
+        {
+          "from": "THIRD_PARTY_NOTICES.md",
+          "to": "licenses/THIRD_PARTY_NOTICES.md"
+        },
+        {
+          "from": "node_modules/electron/dist/LICENSE",
+          "to": "licenses/LICENSE.electron.txt"
+        },
+        {
+          "from": "node_modules/electron/dist/LICENSES.chromium.html",
+          "to": "licenses/LICENSES.chromium.html"
+        }
+      ]
     },
-    "extraResources": [
-      {
-        "from": "bin",
-        "to": "bin",
-        "filter": [
-          "dashstarr-tailscale"
-        ]
+    "linux": {
+      "target": [
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Network;RemoteAccess;Utility;",
+      "maintainer": "antonioalvaro <antonioalvaro@users.noreply.github.com>",
+      "synopsis": "Standalone Chromium client for Selkies Docker desktops and self-hosted services",
+      "description": "Standalone Chromium-based client for Selkies Docker desktops and self-hosted services with built-in Tailscale and App Lock. Compatible with Debian, Ubuntu, ChromeOS, and FydeOS Linux containers.",
+      "desktop": {
+        "entry": {
+          "Name": "Dashstarr",
+          "Comment": "Standalone Chromium client for Selkies and self-hosted services",
+          "Categories": "Network;RemoteAccess;Utility;",
+          "StartupWMClass": "dashstarr"
+        }
       },
-      {
-        "from": "LICENSE",
-        "to": "licenses/LICENSE.txt"
-      },
-      {
-        "from": "THIRD_PARTY_NOTICES.md",
-        "to": "licenses/THIRD_PARTY_NOTICES.md"
-      },
-      {
-        "from": "node_modules/electron/dist/LICENSE",
-        "to": "licenses/LICENSE.electron.txt"
-      },
-      {
-        "from": "node_modules/electron/dist/LICENSES.chromium.html",
-        "to": "licenses/LICENSES.chromium.html"
-      }
-    ]
+      "extraResources": [
+        {
+          "from": "bin",
+          "to": "bin",
+          "filter": [
+            "dashstarr-tailscale-linux-${arch}"
+          ]
+        },
+        {
+          "from": "LICENSE",
+          "to": "licenses/LICENSE.txt"
+        },
+        {
+          "from": "THIRD_PARTY_NOTICES.md",
+          "to": "licenses/THIRD_PARTY_NOTICES.md"
+        },
+        {
+          "from": "node_modules/electron/dist/LICENSE",
+          "to": "licenses/LICENSE.electron.txt"
+        },
+        {
+          "from": "node_modules/electron/dist/LICENSES.chromium.html",
+          "to": "licenses/LICENSES.chromium.html"
+        }
+      ]
+    },
+    "deb": {
+      "artifactName": "${name}_${version}_${arch}.${ext}",
+      "depends": [
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libuuid1",
+        "libsecret-1-0"
+      ]
+    }
   },
   "license": "MIT",
-  "author": "YOUR NAME"
+  "author": "antonioalvaro <antonioalvaro@users.noreply.github.com>"
 }

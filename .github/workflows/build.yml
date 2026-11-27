@@ -1,9 +1,9 @@
-name: Build macOS app
+name: Build apps
 on:
   push:
   workflow_dispatch:
 jobs:
-  build:
+  build-mac:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -14,5 +14,22 @@ jobs:
       - run: npm run dist
       - uses: actions/upload-artifact@v4
         with:
-          name: Dashstarr
+          name: Dashstarr-macOS
           path: dist/*.zip
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: helper/go.mod
+      - run: npm ci
+      - run: npm run helper:linux
+      - run: npm run dist:linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dashstarr-Linux-deb
+          path: dist/*.deb

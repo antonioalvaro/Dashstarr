@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('api', {
   add: (data) => ipcRenderer.invoke('servers:add', data),
   update: (data) => ipcRenderer.invoke('servers:update', data),
   remove: (id) => ipcRenderer.invoke('servers:remove', id),
+  reorder: (ids) => ipcRenderer.invoke('servers:reorder', ids),
   connect: (id) => ipcRenderer.invoke('connect', id),
   quickConnect: (address) => ipcRenderer.invoke('quick-connect', address),
   refreshStatus: () => ipcRenderer.invoke('status:refresh'),

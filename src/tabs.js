@@ -40,6 +40,10 @@ window.tabsApi.onTabs(({ tabs, active }) => {
       if (e.button === 1) window.tabsApi.close(t.id); // middle click
       else if (e.button === 0) window.tabsApi.activate(t.id);
     });
+    tab.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      window.tabsApi.contextMenu(t.id);
+    });
     strip.append(tab);
   }
 });
