@@ -83,22 +83,22 @@ View > Forget Saved Login removes the stored password for the current server. Us
 Open **Dashstarr > Settings…** (Cmd+,) and turn on **Require a password to open the app**, or use **Dashstarr > Quick Lock** (Cmd+Shift+L) any time to lock immediately (with your saved password if App Lock is enabled, or a one-time password without opening Settings).
 
 - Username is optional. Leave it empty to unlock with just a password.
-- **Lock automatically after** locks the app after that many minutes with no keyboard or mouse activity on the Mac.
-- You can also lock when the Mac sleeps or the screen locks, unlock with Touch ID, or lock any time with **Quick Lock** (Cmd+Shift+L).
+- **Lock automatically after** locks the app after that many minutes with no keyboard or mouse activity on the computer.
+- You can also lock when the computer sleeps or the screen locks, unlock with Touch ID (macOS), or lock any time with **Quick Lock** (Cmd/Ctrl+Shift+L).
 - While locked, all windows are hidden and session audio is muted. Your connections keep running, so unlocking puts you right back.
 - The password is stored as a salted hash, never in plain text. After 5 wrong tries there's a short wait before you can try again.
-- Forgot the password? Quit the app, open `~/Library/Application Support/Dashstarr/settings.json` and delete the `"lock"` entry. This turns the lock off (your servers are kept).
+- Forgot the password? Quit the app, open `~/Library/Application Support/Dashstarr/settings.json` (macOS) or `~/.config/dashstarr/settings.json` (Linux) and delete the `"lock"` entry. This turns the lock off (your servers are kept).
 
 ## Tailscale
 
-Click **Tailscale off** in the top right of Home (or **Turn On Tailscale**), then **Log In**. Your browser opens Tailscale's login page; once you approve, this Mac shows up in your tailnet as `dashstarr-<your-mac>`.
+Click **Tailscale off** in the top right of Home (or **Turn On Tailscale**), then **Log In**. Your browser opens Tailscale's login page; once you approve, this computer shows up in your tailnet as `dashstarr-<hostname>`.
 
 - Your tailnet devices appear under **Tailscale Devices**. Click **Add**, type the Selkies port after the colon, and save.
 - Only tailnet addresses (`100.x.x.x`, `*.ts.net`, device names) go through Tailscale. Everything else connects normally.
-- It runs inside this app only. It doesn't touch your Mac's network settings and works alongside the regular Tailscale app.
+- It runs inside this app only. It doesn't touch your computer's network settings and works alongside the regular Tailscale app.
 - Tip: on the server, `tailscale serve` gives Selkies a real https certificate on its `.ts.net` name.
 
-How it works: `bin/dashstarr-tailscale` is a small helper built from `helper/main.go` with Tailscale's `tsnet` library (the same approach as Tailscale's own browser extension). The app starts it, and it runs a local proxy that needs a random password each launch, so other programs on your Mac can't use it to reach your tailnet. To rebuild the helper yourself you need Go 1.26 or newer: `npm run helper`.
+How it works: `bin/dashstarr-tailscale` is a small helper built from `helper/main.go` with Tailscale's `tsnet` library (the same approach as Tailscale's own browser extension). The app starts it, and it runs a local proxy that needs a random password each launch, so other programs on your computer can't use it to reach your tailnet. To rebuild the helper yourself you need Go 1.26 or newer: `npm run helper` (macOS) or `npm run helper:linux` (Linux).
 
 ## Why Electron 43
 
